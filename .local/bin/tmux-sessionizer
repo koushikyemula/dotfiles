@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+if [[ $# -eq 1 ]]; then
+	selected="$1"
+else
+	selected=$(find "$HOME/Desktop/Projects/Open-Source" "$HOME/Desktop/Projects/My-Projects" ~/Desktop/Projects/Work/ ~/Desktop/Projects/hackathon/ ~/Desktop/Projects/alter-space/ ~/Desktop/Projects/ ~/.config/ ~/.local/bin -mindepth 1 -maxdepth 1 -type d -o -type f \( -name ".tmux.conf" -o -name "tmux-sessionizer" \) | fzf)
+fi
+
+if [[ -z "$selected" ]]; then
+	exit 0
+fi
+
+# Handle any regular file by opening it in nvim
+if [[ -f "$selected" ]]; then
+	# Use the filename (without extension) as session name
+	file_session_name=$(basename "$selected" | sed 's/\.[^.]*$//' | sed 's/[^a-zA-Z0-9]/_/g')
+	if ! tmux has-session -t="$file_session_name" 2>/dev/null; then
+		tmux new-session -d -s "$file_session_name" -c "$(dirname "$selected")"
+		tmux send-keys -t "$file_session_name" "nvim $selected" Enter
+	fi
+	if [[ -z "$TMUX" ]]; then
+		exec tmux attach-session -t "$file_session_name"
+	else
+		tmux switch-client -t "$file_session_name"
+	fi
+	exit 0
+fi
+
+# Properly handle the session name creation
+selected_name=$(basename "$selected" | sed 's/[^a-zA-Z0-9]/_/g')
+tmux_running=$(pgrep tmux)
+
+create_session() {
+	# First check if session exists before creating
+	if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+		# Create the session without attaching and with the correct path
+		TMUX='' tmux new-session -d -s "$selected_name" -c "$selected"
+
+		# Setup main window
+		tmux rename-window -t "$selected_name:1" "main"
+
+		if [[ "$selected" == *"Work//frontend"* ]]; then
+			tmux send-keys -t "$selected_name:main" 'nvim' Enter
+
+			# Create backend window with explicit path
+			tmux new-window -t "$selected_name" -n "backend" -c "$selected"
+			tmux send-keys -t "$selected_name:backend" '../backend && git pull' Enter
+		else
+			# Create git window with explicit path
+			tmux new-window -t "$selected_name" -n "git" -c "$selected"
+		fi
+	fi
+}
+
+if [[ -z "$TMUX" ]] && [[ -z "$tmux_running" ]]; then
+	create_session
+	exec tmux attach-session -t "$selected_name"
+fi
+
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+	create_session
+fi
+
+tmux switch-client -t "$selected_name:main"

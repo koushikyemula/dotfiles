@@ -74,6 +74,7 @@ export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git --exclu
 plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
+neofetch --source ~/.config/neofetch/logo.txt
 
 # User configuration
 
@@ -124,6 +125,7 @@ esac
 . "/Users/koushik/.deno/env"
 
 alias inv='nvim $(fzf -m --preview="bat --color=always {}")'
+alias neofetch='neofetch --source ~/.config/neofetch/logo.txt'
 
 source <(fzf --zsh)
 export PATH="/opt/homebrew/opt/jpeg/bin:$PATH"
